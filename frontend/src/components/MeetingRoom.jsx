@@ -331,7 +331,7 @@ const MeetingRoom = () => {
         }
         
         // PRE-GENERATE ANALYSIS: Fire and forget so HR gets the report instantly without delay
-        fetch(`http://localhost:5000/api/report/${id}`).catch(err => console.error("Auto-report generation failed:", err));
+        fetch(`http://localhost:5000/api/report/${id}`, { keepalive: true }).catch(err => console.error("Auto-report generation failed:", err));
         
         // Wait 2.5 seconds before navigating to show the "Finalizing..." state smoothly
         setTimeout(() => {

@@ -22,12 +22,25 @@ const HRDashboard = () => {
 
     // Fetch real candidates from MongoDB on load
     useEffect(() => {
-        fetch('http://localhost:5000/api/candidates')
-            .then(res => res.json())
-            .then(data => {
-                if (data.length > 0) setCandidates(data);
-            })
-            .catch(err => console.error("Failed to load candidates:", err));
+        const loadCandidates = () => {
+            fetch('http://localhost:5000/api/candidates')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        setCandidates(data);
+                        setSelectedCandidate(prev => {
+                            if (!prev) return null;
+                            const updated = data.find(c => c.id === prev.id);
+                            if (!updated) return prev;
+                            return { ...prev, ...updated, analysis: { ...prev.analysis, ...updated.analysis }, status: ['Hired', 'Rejected', 'Reviewed'].includes(prev.status) ? prev.status : updated.status, score: updated.score != null && updated.score !== '--' ? updated.score : prev.score };
+                        });
+                    }
+                })
+                .catch(err => console.error("Failed to load candidates:", err));
+        };
+        loadCandidates();
+        const intervalId = setInterval(loadCandidates, 5000);
+        return () => clearInterval(intervalId);
     }, []);
 
     const filteredCandidates = useMemo(() => {
@@ -155,7 +168,7 @@ const HRDashboard = () => {
                 if (realData.analysis) {
                     const updatedCandidate = {
                         ...c,
-                        score: realData.score || c.score,
+                        score: realData.score != null ? realData.score : c.score,
                         subScores: realData.subScores || c.subScores,
                         analysis: { ...c.analysis, ...realData.analysis },
                         status: ['Hired', 'Rejected', 'Reviewed'].includes(c.status) ? c.status : (realData.status || c.status),
@@ -183,7 +196,7 @@ const HRDashboard = () => {
                 if (realData.analysis) {
                     const updatedCandidate = {
                         ...selectedCandidate,
-                        score: realData.score || selectedCandidate.score,
+                        score: realData.score != null ? realData.score : selectedCandidate.score,
                         subScores: realData.subScores || selectedCandidate.subScores,
                         analysis: { ...selectedCandidate.analysis, ...realData.analysis },
                         status: ['Hired', 'Rejected', 'Reviewed'].includes(selectedCandidate.status) ? selectedCandidate.status : (realData.status || selectedCandidate.status),
@@ -660,7 +673,7 @@ const HRDashboard = () => {
                             // Avoid duplication with the separated queue above
                             if ((filterStatus === 'All' || filterStatus === 'Shortlisted') && c.status === 'Shortlisted') return null;
 
-                            const isCvPhase = c.score === '--' && c.resumeScore != null;
+                            const isCvPhase = (c.score === '--' || c.score == null) && c.resumeScore != null;
                             const displayScore = isCvPhase ? c.resumeScore : c.score;
                             const scoreLabel = isCvPhase ? 'CV Score' : 'AI Score';
                             return (
@@ -716,7 +729,7 @@ const HRDashboard = () => {
                 <div className="xl:col-span-5 bg-[#121418] rounded-xl border border-white/5 shadow-xl h-[calc(100vh-8rem)] xl:sticky xl:top-[6rem] flex flex-col overflow-hidden">
                     {selectedCandidate ? (
                         (() => {
-                            const isCvPhase = selectedCandidate.score === '--' && selectedCandidate.resumeScore != null;
+                            const isCvPhase = (selectedCandidate.score === '--' || selectedCandidate.score == null) && selectedCandidate.resumeScore != null;
                             const activeScore = isCvPhase ? selectedCandidate.resumeScore : selectedCandidate.score;
                             const activeLabel = isCvPhase ? 'CV Score' : 'AI Score';
                             return (
@@ -810,6 +823,7 @@ const HRDashboard = () => {
                                             <h3 className="text-xl font-bold text-white mb-4">
                                                 {selectedCandidate.status === 'Shortlisted' ? 'Candidate Shortlisted by AI' : 
                                                  selectedCandidate.status === 'Rejected' ? 'Candidate Rejected by AI (Low Match)' : 
+                                                 selectedCandidate.status === 'In Progress' ? 'Interview In Progress...' :
                                                  'Interview Invite Sent'}
                                             </h3>
                                             <p className="text-sm text-slate-300 leading-relaxed bg-[#090a0c] p-6 rounded-lg text-left shadow-inner border border-white/5 max-w-2xl">

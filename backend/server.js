@@ -169,10 +169,10 @@ const formatCandidate = (c) => {
         email: c.email,
         role: c.role,
         date: new Date(c.createdAt + ' UTC').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        score: c.score || '--',
+        score: c.score != null ? c.score : '--',
         subScores: subScores,
         status: c.status,
-        flags: c.redFlags || proctoringArray.length,
+        flags: c.redFlags != null ? c.redFlags : proctoringArray.length,
         resumeScore: c.resumeScore || null,
         resumeAnalysis: c.resumeAnalysis || "",
         judgeScore: null,
@@ -906,12 +906,16 @@ app.get('/api/report/:id', async (req, res) => {
         }
         const analysisResult = JSON.parse(cleanJson);
 
+        const score = analysisResult.score != null ? analysisResult.score : 0;
+        const subScores = analysisResult.subScores || { logic: 0, syntax: 0, communication: 0 };
+        const analysisObj = analysisResult.analysis || { technical: "N/A", coding: "N/A", communication: "N/A", proctoring: [] };
+
         // Save the generated analysis to the candidate's profile
         db.prepare('UPDATE interviews SET score = ?, subScores = ?, analysis = ?, status = ? WHERE interviewId = ?')
           .run(
-              analysisResult.score,
-              JSON.stringify(analysisResult.subScores),
-              JSON.stringify(analysisResult.analysis),
+              score,
+              JSON.stringify(subScores),
+              JSON.stringify(analysisObj),
               "Pending Review",
               interviewId
           );
@@ -1018,8 +1022,12 @@ app.post('/api/upload-video', upload.single('video'), async (req, res) => {
 
             try {
                 // Update the candidate in SQLite with the new video link
+                const currentRecord = db.prepare('SELECT status FROM interviews WHERE interviewId = ?').get(interviewId);
+                const currentStatus = currentRecord ? currentRecord.status : 'In Progress';
+                const newStatus = ['Hired', 'Rejected', 'Reviewed', 'Pending Review'].includes(currentStatus) ? currentStatus : 'Pending Review';
+
                 db.prepare('UPDATE interviews SET videoUrl = ?, status = ? WHERE interviewId = ?')
-                  .run(result.secure_url, 'Reviewed', interviewId);
+                  .run(result.secure_url, newStatus, interviewId);
                   
                 const updatedInterview = db.prepare('SELECT * FROM interviews WHERE interviewId = ?').get(interviewId);
                 
