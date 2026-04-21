@@ -1,8 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 body {
-  background-color: #111827; /* A sleek dark mode gray */
+  background-color: #0f172a;
   color: white;
 }
